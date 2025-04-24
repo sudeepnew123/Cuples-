@@ -4,7 +4,8 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import requests
 from io import BytesIO
-from telegram import Update, Bot, ParseMode
+from telegram import Update, Bot
+from telegram.constants import ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from dotenv import load_dotenv
 
