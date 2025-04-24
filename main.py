@@ -1,90 +1,61 @@
-import logging
-import random
-import os
-from PIL import Image, ImageDraw, ImageFont
-import requests
-from io import BytesIO
-from telegram import Update, Bot
-from telegram.constants import ParseMode
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from dotenv import load_dotenv
+import logging import random import os from PIL import Image, ImageDraw, ImageFont import requests from io import BytesIO from telegram import Update from telegram.constants import ParseMode from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes from dotenv import load_dotenv
 
-# Load environment variables from .env file
+Load environment variables from .env file
+
 load_dotenv()
 
-# Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
+Enable logging
 
-# Bot token from environment variables
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO) logger = logging.getLogger(name)
+
+Bot token from environment variables
+
 TOKEN = os.getenv("BOT_TOKEN")
 
-# A function to create the couple image
-def generate_couple_image(user1, user2, img_url):
-    response = requests.get(img_url)
-    img = Image.open(BytesIO(response.content))
+A function to create the couple image
 
-    # Add customizations
-    draw = ImageDraw.Draw(img)
-    font = ImageFont.load_default()
+def generate_couple_image(user1_name, user2_name, img_url): response = requests.get(img_url) img = Image.open(BytesIO(response.content)).convert("RGBA") draw = ImageDraw.Draw(img) font = ImageFont.load_default()
 
-    # Add text or shayari
-    shayari = "Dil se dil milte hain,\nYeh mohabbat hai apni kahani!"
-    draw.text((10, 10), f"Couple of the Day\n\n{shayari}", font=font, fill="white")
+# Add text or shayari
+shayari = "Dil se dil milte hain,\nYeh mohabbat hai apni kahani!"
+draw.text((10, 10), f"Couple of the Day\n{user1_name} ❤️ {user2_name}\n\n{shayari}", font=font, fill="white")
 
-    # Save the final image
-    img.save("couple_image.jpg")
-    return "couple_image.jpg"
+img_path = "couple_image.png"
+img.save(img_path)
+return img_path
 
-# /couples command to fetch random members and create an image
-def couple(update: Update, context: CallbackContext) -> None:
-    chat_id = update.message.chat_id
-    members = update.message.chat.get_members()
-    
-    # Select 2 random members
-    member1 = random.choice(members)
-    member2 = random.choice([m for m in members if m != member1])
-    
-    # Fetch their profile photos
-    photo1 = member1['user']['photo']
-    photo2 = member2['user']['photo']
-    
-    # Background link you provided
-    background_url = "https://i.ibb.co/RGxSJ7kG/lovepik-couple-back-png-image-401205486-wh1200.png"
+/start command
 
-    # Generate the couple image
-    image_path = generate_couple_image(photo1, photo2, background_url)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE): await update.message.reply_text("Welcome to the Couple Bot!")
 
-    # Send the final image to the group
-    update.message.reply_photo(photo=open(image_path, 'rb'), caption=f"Couple of the Day: {member1['user']['username']} ❤️ {member2['user']['username']}")
+/couples command
 
-# Start command to initialize the bot
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Welcome to the Couple Bot!")
+async def couple(update: Update, context: ContextTypes.DEFAULT_TYPE): chat_id = update.message.chat_id chat_members = [await context.bot.get_chat_member(chat_id, user_id) for user_id in context.application.chat_data.get(chat_id, {}).get("users", []) if user_id != update.message.from_user.id]
 
-# Error handling
-def error(update: Update, context: CallbackContext) -> None:
-    logger.warning(f"Update {update} caused error {context.error}")
+if len(chat_members) < 2:
+    await update.message.reply_text("Kam se kam 2 members hone chahiye! Add karne ke liye kuch log message bhejein.")
+    return
 
-def main():
-    # Start the Bot
-    updater = Updater(TOKEN, use_context=True)
+user1 = random.choice(chat_members).user
+user2 = random.choice([u.user for u in chat_members if u.user.id != user1.id])
 
-    dispatcher = updater.dispatcher
+background_url = "https://i.ibb.co/RGxSJ7kG/lovepik-couple-back-png-image-401205486-wh1200.png"
+image_path = generate_couple_image(user1.first_name, user2.first_name, background_url)
 
-    # Register command handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("couples", couple))
+with open(image_path, "rb") as photo:
+    await update.message.reply_photo(photo=photo, caption=f"Couple of the Day: [{user1.first_name}](tg://user?id={user1.id}) ❤️ [{user2.first_name}](tg://user?id={user2.id})", parse_mode=ParseMode.MARKDOWN)
 
-    # Log all errors
-    dispatcher.add_error_handler(error)
+Track users who send messages
 
-    # Start polling
-    updater.start_polling()
+async def track_users(update: Update, context: ContextTypes.DEFAULT_TYPE): chat_id = update.message.chat_id user_id = update.message.from_user.id if not context.application.chat_data.get(chat_id): context.application.chat_data[chat_id] = {"users": set()} context.application.chat_data[chat_id]["users"].add(user_id)
 
-    # Run the bot until you send a signal to stop
-    updater.idle()
+Main entry point
 
-if __name__ == '__main__':
-    main()
+if name == 'main': app = ApplicationBuilder().token(TOKEN).build()
+
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("couples", couple))
+app.add_handler(MessageHandler(None, track_users))
+
+app.run_polling()
+
