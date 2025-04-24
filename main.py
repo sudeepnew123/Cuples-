@@ -62,6 +62,8 @@ async def couple(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_photo(
             photo=photo,
             caption=f"❤️ Couple of the Day:\n[{user1.user.first_name}](tg://user?id={user1.user.id}) + [{user2.user.first_name}](tg://user?id={user2.user.id}) ❤️",
+            parse_mode=ParseMode.MARKDOWN
+        )
 
 # Track active users
 async def track_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,3 +80,4 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(None, track_users))
 
     app.run_polling()
+  
